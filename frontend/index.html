@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AURA-FOG // Real-Time AI Smart Traffic & Accident Detection</title>
+  
+  <!-- Leaflet CSS for Dark Maps -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+  <!-- Chart.js for Live Telemetry -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation & Global Controls -->
+  <header class="top-nav">
+    <div class="brand-wrapper">
+      <div class="brand-logo-hex">
+        <i data-lucide="radio" style="width:20px;height:20px;"></i>
+      </div>
+      <div>
+        <div class="brand-title">AURA-FOG SMART TRAFFIC & ACCIDENT AI</div>
+        <div class="brand-subtitle">Decentralized Fog Computing Edge Vision Architecture</div>
+      </div>
+    </div>
+
+    <!-- Quick Action Scenario Triggers -->
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <button id="btnTriggerAccident" class="action-btn btn-accident" title="Simulate a sudden vehicle crash at this intersection">
+        <i data-lucide="zap" style="width:16px;height:16px;"></i>
+        <span>Simulate Collision</span>
+      </button>
+
+      <button id="btnTriggerAmbulance" class="action-btn btn-ambulance" title="Spawn an emergency vehicle to test Green Wave preemption">
+        <i data-lucide="siren" style="width:16px;height:16px;"></i>
+        <span>Simulate Ambulance</span>
+      </button>
+
+      <button id="btnClearScene" class="action-btn btn-clear" title="Clear collided vehicles and restore traffic">
+        <i data-lucide="rotate-ccw" style="width:16px;height:16px;"></i>
+        <span>Clear Scene</span>
+      </button>
+
+      <button id="btnInfoModal" class="action-btn btn-primary" title="View Fog Computing Architecture Guide">
+        <i data-lucide="cpu" style="width:16px;height:16px;"></i>
+        <span>Fog Architecture</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Top Real-time KPI Bar -->
+  <section class="kpi-strip">
+    <div class="glass-panel kpi-card kpi-cyan">
+      <div>
+        <div class="kpi-label">Fog Edge Latency</div>
+        <div id="kpiFogLatency" class="kpi-value" style="color: var(--accent-cyan);">7.9 ms</div>
+        <div class="kpi-subtext"><span id="kpiLatencyAdvantage">96.3%</span> faster than Cloud</div>
+      </div>
+      <i data-lucide="gauge" style="width:32px;height:32px;color:rgba(6,182,212,0.4);"></i>
+    </div>
+
+    <div class="glass-panel kpi-card kpi-emerald">
+      <div>
+        <div class="kpi-label">Bandwidth Saved</div>
+        <div id="kpiBwSaved" class="kpi-value" style="color: var(--accent-emerald);">99.6%</div>
+        <div class="kpi-subtext"><span id="kpiSavedGb">142.8 GB</span> raw video pruned</div>
+      </div>
+      <i data-lucide="hard-drive-download" style="width:32px;height:32px;color:rgba(16,185,129,0.4);"></i>
+    </div>
+
+    <div class="glass-panel kpi-card kpi-purple">
+      <div>
+        <div class="kpi-label">Vehicles Tracked</div>
+        <div id="kpiVehicleCount" class="kpi-value" style="color: var(--accent-purple);">48</div>
+        <div class="kpi-subtext">Across 5 Fog Nodes</div>
+      </div>
+      <i data-lucide="car" style="width:32px;height:32px;color:rgba(139,92,246,0.4);"></i>
+    </div>
+
+    <div class="glass-panel kpi-card kpi-rose">
+      <div>
+        <div class="kpi-label">Incident Status</div>
+        <div id="kpiIncidentStatus" class="kpi-value" style="color: var(--accent-emerald);">NORMAL</div>
+        <div id="kpiIncidentSubtext" class="kpi-subtext">All Corridors Clear</div>
+      </div>
+      <i id="kpiIncidentIcon" data-lucide="shield-check" style="width:32px;height:32px;color:rgba(16,185,129,0.4);"></i>
+    </div>
+  </section>
+
+  <!-- Main 3-Column Dashboard Body -->
+  <main class="dashboard-grid">
+    
+    <!-- Left Column: Fog Node Network & Map -->
+    <div class="left-column" style="display:flex; flex-direction:column; gap:16px;">
+      
+      <!-- Node Selector -->
+      <div class="glass-panel" style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="font-size:0.95rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">
+            <i data-lucide="network" style="width:16px;height:16px;display:inline-block;vertical-align:-2px;color:var(--accent-cyan);"></i>
+            Fog Nodes Grid
+          </h3>
+          <span style="font-size:0.75rem; color:var(--text-muted); font-family:var(--font-mono);">5 ONLINE</span>
+        </div>
+
+        <div id="fogNodesList">
+          <!-- Populated dynamically via JS -->
+        </div>
+      </div>
+
+      <!-- City Map -->
+      <div class="glass-panel" style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h4 style="font-size:0.85rem; font-weight:600; text-transform:uppercase; color:var(--text-secondary);">
+            <i data-lucide="map-pin" style="width:14px;height:14px;display:inline-block;vertical-align:-1px;color:var(--accent-cyan);"></i>
+            GIS Intersection Map
+          </h4>
+          <span style="font-size:0.7rem; font-family:var(--font-mono); color:var(--accent-emerald);">LIVE GPS</span>
+        </div>
+        <div id="cityMap"></div>
+      </div>
+
+      <!-- Edge Hardware Telemetry -->
+      <div class="glass-panel" style="padding: 16px;">
+        <h4 style="font-size:0.85rem; font-weight:600; text-transform:uppercase; color:var(--text-secondary); margin-bottom:12px;">
+          <i data-lucide="cpu" style="width:14px;height:14px;display:inline-block;vertical-align:-1px;color:var(--accent-purple);"></i>
+          Active Node Edge Hardware
+        </h4>
+        
+        <div class="benchmark-row">
+          <div class="benchmark-labels">
+            <span>Edge AI TPU / GPU Load</span>
+            <span id="nodeCpuLoad" style="font-family:var(--font-mono); color:var(--accent-cyan);">42%</span>
+          </div>
+          <div class="progress-track">
+            <div id="nodeCpuBar" class="progress-fill-fog" style="width:42%;"></div>
+          </div>
+        </div>
+
+        <div class="benchmark-row" style="margin-bottom:0;">
+          <div class="benchmark-labels">
+            <span>Edge RAM Allocation</span>
+            <span id="nodeMemLoad" style="font-family:var(--font-mono); color:var(--accent-purple);">45%</span>
+          </div>
+          <div class="progress-track">
+            <div id="nodeMemBar" class="progress-fill-fog" style="width:45%; background:var(--accent-purple);"></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Center Column: Live AI Edge Vision & Traffic Signals -->
+    <div class="center-column" style="display:flex; flex-direction:column; gap:16px;">
+      
+      <!-- Live Video / AI Vision Canvas -->
+      <div class="glass-panel" style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <div>
+            <h2 id="activeNodeHeading" style="font-size:1.15rem; font-weight:700; letter-spacing:-0.01em;">
+              Downtown Broadway & 5th Ave
+            </h2>
+            <div style="font-size:0.75rem; color:var(--text-secondary); font-family:var(--font-mono);">
+              NODE ID: <span id="activeNodeBadge" style="color:var(--accent-cyan);">FN-01</span> // 4-WAY SMART CORRIDOR
+            </div>
+          </div>
+
+          <div style="display:flex; gap:12px; align-items:center;">
+            <div style="font-size:0.75rem; font-family:var(--font-mono); background:rgba(0,0,0,0.5); padding:4px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.1);">
+              FPS: <span id="streamFps" style="color:var(--accent-emerald);">30.0</span>
+            </div>
+            <div style="font-size:0.75rem; font-family:var(--font-mono); background:rgba(0,0,0,0.5); padding:4px 10px; border-radius:6px; border:1px solid rgba(255,255,255,0.1);">
+              SPEED: <span id="streamAvgSpeed" style="color:var(--accent-cyan);">52.4 km/h</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Canvas Frame Container -->
+        <div class="canvas-container">
+          <canvas id="visionCanvas" width="960" height="540"></canvas>
+
+          <!-- Top Camera HUD Overlay -->
+          <div class="camera-hud-overlay">
+            <div class="camera-tag">
+              <span class="rec-dot"></span>
+              <span>LIVE AI EDGE FEED [FN-01]</span>
+            </div>
+            <div class="camera-tag">
+              <span>MODEL: YOLO-Edge-V8 INT8</span>
+              <span style="color:var(--accent-cyan);">LATENCY: <span id="hudLatency">8.2ms</span></span>
+            </div>
+          </div>
+
+          <!-- Collision Alert Banner (Hidden by default, shown on crash) -->
+          <div id="accidentBanner" class="accident-canvas-alert" style="display:none;">
+            <i data-lucide="alert-triangle" style="width:24px;height:24px;"></i>
+            <div>
+              <div style="font-size:0.95rem; letter-spacing:0.02em;">CRITICAL ACCIDENT DETECTED BY EDGE AI</div>
+              <div id="accidentBannerSub" style="font-size:0.75rem; font-weight:500; opacity:0.9;">
+                Impact detected in intersection core. Automated dispatch recommended.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Adaptive Traffic Signal Controller UI -->
+        <div class="traffic-signal-widget">
+          
+          <!-- North-South Signal Lamp -->
+          <div style="text-align:center;">
+            <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:6px; font-family:var(--font-mono);">
+              NORTH-SOUTH SIGNAL
+            </div>
+            <div class="signal-pillar">
+              <div id="nsLightRed" class="signal-bulb"></div>
+              <div id="nsLightYellow" class="signal-bulb"></div>
+              <div id="nsLightGreen" class="signal-bulb green-active"></div>
+            </div>
+          </div>
+
+          <!-- Signal Phase Countdown Timer -->
+          <div style="text-align:center; min-width:140px;">
+            <div id="signalPhaseLabel" style="font-size:0.8rem; font-weight:700; color:var(--accent-emerald); font-family:var(--font-mono); margin-bottom:2px;">
+              NS GREEN PHASE
+            </div>
+            <div id="signalTimerCountdown" style="font-size:2.2rem; font-weight:800; font-family:var(--font-mono); line-height:1;">
+              15s
+            </div>
+            <div id="signalModeBadge" style="font-size:0.68rem; color:var(--text-muted); font-family:var(--font-mono); margin-top:4px;">
+              ADAPTIVE WEBSTER OPTIMIZED
+            </div>
+          </div>
+
+          <!-- East-West Signal Lamp -->
+          <div style="text-align:center;">
+            <div style="font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:6px; font-family:var(--font-mono);">
+              EAST-WEST SIGNAL
+            </div>
+            <div class="signal-pillar">
+              <div id="ewLightRed" class="signal-bulb red-active"></div>
+              <div id="ewLightYellow" class="signal-bulb"></div>
+              <div id="ewLightGreen" class="signal-bulb"></div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Green Wave Preemption Alert (When Ambulance Detected) -->
+        <div id="greenWaveAlert" class="green-wave-active-badge" style="display:none; margin-top:12px;">
+          <i data-lucide="radio" style="width:18px;height:18px;color:#10b981;"></i>
+          <span>EMERGENCY GREEN WAVE PREEMPTION ACTIVE: Opposing signals locked RED for emergency corridor.</span>
+        </div>
+
+        <!-- Manual Phase Controls Strip -->
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:14px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06);">
+          <div style="font-size:0.78rem; color:var(--text-secondary);">
+            Signal Control: <span id="adaptiveStatusText" style="color:var(--accent-emerald); font-weight:600;">Adaptive Edge AI</span>
+          </div>
+          <div style="display:flex; gap:8px;">
+            <button id="btnOverrideNS" class="action-btn btn-clear" style="font-size:0.75rem; padding:5px 10px;">
+              Force NS Green
+            </button>
+            <button id="btnOverrideEW" class="action-btn btn-clear" style="font-size:0.75rem; padding:5px 10px;">
+              Force EW Green
+            </button>
+            <button id="btnResetAdaptive" class="action-btn btn-ambulance" style="font-size:0.75rem; padding:5px 10px;">
+              Auto Adaptive
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Live Traffic Density & Vehicle Throughput Chart -->
+      <div class="glass-panel" style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="font-size:0.85rem; font-weight:600; text-transform:uppercase; color:var(--text-secondary);">
+            <i data-lucide="trending-up" style="width:14px;height:14px;display:inline-block;vertical-align:-1px;color:var(--accent-emerald);"></i>
+            Traffic Volume & Vehicle Throughput (Vehicles / Cycle)
+          </h4>
+          <span style="font-size:0.7rem; font-family:var(--font-mono); color:var(--text-muted);">ROLLING 15 CYCLES</span>
+        </div>
+        <div style="height:120px; width:100%;">
+          <canvas id="trafficThroughputChart"></canvas>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Right Column: Fog vs Cloud Benchmarks & Incident Response Desk -->
+    <div class="right-column" style="display:flex; flex-direction:column; gap:16px;">
+      
+      <!-- Fog vs Central Cloud Paradigm Benchmark Card -->
+      <div class="glass-panel" style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="font-size:0.92rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">
+            <i data-lucide="layers" style="width:16px;height:16px;display:inline-block;vertical-align:-2px;color:var(--accent-cyan);"></i>
+            Fog vs Cloud Metrics
+          </h3>
+          <span style="font-size:0.72rem; font-family:var(--font-mono); color:var(--accent-emerald);">LOW LATENCY</span>
+        </div>
+
+        <!-- Latency Bar Comparison -->
+        <div class="benchmark-row">
+          <div class="benchmark-labels">
+            <span>Fog Node Edge Latency</span>
+            <span id="bmFogLatency" style="font-family:var(--font-mono); color:var(--accent-emerald); font-weight:700;">8.2 ms</span>
+          </div>
+          <div class="progress-track">
+            <div id="bmFogBar" class="progress-fill-fog" style="width: 8%;"></div>
+          </div>
+        </div>
+
+        <div class="benchmark-row">
+          <div class="benchmark-labels">
+            <span>Central Cloud Round-trip</span>
+            <span id="bmCloudLatency" style="font-family:var(--font-mono); color:var(--accent-rose); font-weight:700;">215.0 ms</span>
+          </div>
+          <div class="progress-track">
+            <div id="bmCloudBar" class="progress-fill-cloud" style="width: 88%;"></div>
+          </div>
+        </div>
+
+        <!-- Bandwidth Conservation Statistics -->
+        <div style="background:rgba(0,0,0,0.3); border-radius:6px; padding:10px; margin-top:12px; font-size:0.78rem;">
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--text-secondary);">Raw 1080p Stream:</span>
+            <span style="font-family:var(--font-mono); color:#fca5a5;">34.2 Mbps / camera</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; margin-bottom:6px;">
+            <span style="color:var(--text-secondary);">Fog Filtered Telemetry:</span>
+            <span style="font-family:var(--font-mono); color:#6ee7b7;">112 Kbps (JSON only)</span>
+          </div>
+          <div style="display:flex; justify-content:space-between; font-weight:700; color:var(--accent-cyan);">
+            <span>Bandwidth Reduced:</span>
+            <span id="bmBwReduced">99.67%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Accident Response & Dispatch Desk -->
+      <div class="glass-panel" style="padding: 16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+          <h3 style="font-size:0.92rem; font-weight:700; text-transform:uppercase; letter-spacing:0.04em;">
+            <i data-lucide="shield-alert" style="width:16px;height:16px;display:inline-block;vertical-align:-2px;color:var(--accent-rose);"></i>
+            Accident Dispatch Desk
+          </h3>
+          <span id="incidentCountBadge" class="status-pill status-online">0 ACTIVE</span>
+        </div>
+
+        <div id="incidentDeskContent">
+          <!-- Shown when no active incident -->
+          <div id="noIncidentPlaceholder" style="text-align:center; padding:24px 10px; color:var(--text-muted);">
+            <i data-lucide="check-circle" style="width:36px;height:36px;margin:0 auto 8px auto;display:block;color:var(--accent-emerald);opacity:0.6;"></i>
+            <div style="font-size:0.85rem; font-weight:600; color:var(--text-secondary);">Intersection Clear</div>
+            <div style="font-size:0.75rem;">Edge AI actively monitoring vehicle trajectories</div>
+          </div>
+
+          <!-- Active Incident Card (Hidden until crash detected) -->
+          <div id="activeIncidentCard" class="incident-card" style="display:none;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span id="incSeverityBadge" class="badge-critical">CRITICAL IMPACT</span>
+              <span id="incTimeBadge" style="font-size:0.72rem; font-family:var(--font-mono); color:var(--text-secondary);">12:34:56</span>
+            </div>
+
+            <div style="font-size:0.82rem; margin-bottom:6px;">
+              <strong>Location:</strong> <span id="incLocation">Downtown Broadway & 5th Ave</span>
+            </div>
+            <div style="font-size:0.82rem; margin-bottom:6px;">
+              <strong>Impact Velocity:</strong> <span id="incSpeed" style="font-family:var(--font-mono); color:#fca5a5;">54.2 km/h</span>
+            </div>
+            <div style="font-size:0.82rem; margin-bottom:10px;">
+              <strong>Vehicles:</strong> <span id="incVehicles" style="color:#cbd5e1;">SUV-101 vs CAR-102</span>
+            </div>
+
+            <div style="font-size:0.75rem; color:var(--text-secondary); margin-bottom:10px;">
+              <strong>AI Protocol Recommendations:</strong>
+              <ul id="incRecommendations" style="padding-left:18px; margin-top:4px; font-size:0.73rem; color:#fecdd3;">
+                <li>Level-1 Trauma Ambulance (EMS Dispatch)</li>
+                <li>Traffic Incident Management Patrol</li>
+              </ul>
+            </div>
+
+            <div style="display:flex; flex-direction:column; gap:8px;">
+              <button id="btnDispatchEMS" class="action-btn btn-accident" style="width:100%; justify-content:center;">
+                <i data-lucide="send" style="width:14px;height:14px;"></i>
+                <span>Dispatch Emergency Services</span>
+              </button>
+              <button id="btnResolveIncident" class="action-btn btn-clear" style="width:100%; justify-content:center; font-size:0.75rem;">
+                <i data-lucide="check" style="width:14px;height:14px;"></i>
+                <span>Mark Scene Cleared</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Terminal / Audit Log -->
+      <div class="glass-panel" style="padding: 16px; flex-grow:1;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h4 style="font-size:0.85rem; font-weight:600; text-transform:uppercase; color:var(--text-secondary);">
+            <i data-lucide="terminal" style="width:14px;height:14px;display:inline-block;vertical-align:-1px;color:var(--accent-cyan);"></i>
+            Edge Detection Audit Log
+          </h4>
+          <span style="font-size:0.7rem; font-family:var(--font-mono); color:var(--accent-emerald);">WEBSOCKET STREAM</span>
+        </div>
+        <div id="terminalLog" class="terminal-window">
+          <!-- Dynamic entries -->
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- Fog Computing Architecture Modal Dialog -->
+  <div id="fogModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); backdrop-filter:blur(8px); z-index:999; align-items:center; justify-content:center; padding:20px;">
+    <div class="glass-panel" style="max-width:760px; width:100%; padding:28px; border-color:var(--accent-cyan); box-shadow:0 0 40px rgba(6,182,212,0.3);">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div class="brand-logo-hex" style="width:34px;height:34px;font-size:1rem;">
+            <i data-lucide="cpu" style="width:18px;height:18px;"></i>
+          </div>
+          <h3 style="font-size:1.2rem; font-weight:700;">Fog Computing Architecture in Smart Traffic & Accident AI</h3>
+        </div>
+        <button id="btnCloseModal" style="background:transparent; border:none; color:var(--text-muted); cursor:pointer;">
+          <i data-lucide="x" style="width:24px;height:24px;"></i>
+        </button>
+      </div>
+
+      <div style="font-size:0.88rem; color:#cbd5e1; line-height:1.6; display:flex; flex-direction:column; gap:14px;">
+        <p>
+          Traditional cloud-centric traffic systems transmit every raw video stream across wide-area networks to a centralized cloud. 
+          This introduces severe transmission bottlenecks, high network latency (200ms+), and bandwidth saturation.
+        </p>
+
+        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin:8px 0;">
+          <div style="background:rgba(15,23,42,0.8); border:1px solid rgba(56,189,248,0.2); border-radius:8px; padding:12px;">
+            <div style="color:var(--accent-cyan); font-weight:700; margin-bottom:4px; font-size:0.82rem;">LAYER 1: SENSORS & CAMERAS</div>
+            <div style="font-size:0.75rem; color:var(--text-secondary);">Intersection HD optics, loop detectors, emergency beacon sensors streaming raw feeds locally.</div>
+          </div>
+          <div style="background:rgba(6,182,212,0.1); border:1px solid var(--accent-cyan); border-radius:8px; padding:12px;">
+            <div style="color:#38bdf8; font-weight:700; margin-bottom:4px; font-size:0.82rem;">LAYER 2: FOG NODES (EDGE)</div>
+            <div style="font-size:0.75rem; color:var(--text-secondary);">Decentralized GPU/TPU boxes running quantized YOLO AI vision in <strong>~8ms</strong>. Acts instantly on collisions and overrides signals.</div>
+          </div>
+          <div style="background:rgba(15,23,42,0.8); border:1px solid rgba(139,92,246,0.2); border-radius:8px; padding:12px;">
+            <div style="color:var(--accent-purple); font-weight:700; margin-bottom:4px; font-size:0.82rem;">LAYER 3: CLOUD HUB</div>
+            <div style="font-size:0.75rem; color:var(--text-secondary);">Receives lightweight metadata (saving >99% bandwidth). Manages multi-agency dispatch and city-wide trends.</div>
+          </div>
+        </div>
+
+        <div style="background:rgba(16,185,129,0.1); border-left:3px solid var(--accent-emerald); padding:10px 14px; border-radius:0 6px 6px 0; font-size:0.82rem;">
+          <strong>Why Fog Computing saves lives:</strong> In high-speed collisions, the "Golden Hour" of emergency response begins immediately. By analyzing collisions locally in sub-10ms, Fog nodes instantly sound alerts, lock traffic signals to prevent secondary crashes, and auto-dispatch trauma EMS minutes before manual 911 calls.
+        </div>
+      </div>
+
+      <div style="text-align:right; margin-top:20px;">
+        <button id="btnDismissModal" class="action-btn btn-primary" style="padding:8px 20px;">Close Guide</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main JavaScript App -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
