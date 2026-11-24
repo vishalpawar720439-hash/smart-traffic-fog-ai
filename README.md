@@ -97,7 +97,7 @@ cd smart-traffic-fog-ai
 python -m pip install -r backend/requirements.txt
 ```
 
-### 3. Run the Application
+### 3. Run Locally
 Launch the project with the included launcher:
 ```bash
 python run.py
@@ -109,6 +109,13 @@ python -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 
 Open your browser to:
 👉 **`http://127.0.0.1:8000`**
+
+### 4. Deploy to Vercel ⚡
+This project is pre-configured with `vercel.json` and `api/index.py`:
+1. Push this repository to GitHub.
+2. Go to [vercel.com](https://vercel.com) and click **"Add New..." > "Project"**.
+3. Select this repository and click **"Deploy"**.
+4. The backend serverless functions and frontend static assets will be deployed automatically!
 
 ---
 
