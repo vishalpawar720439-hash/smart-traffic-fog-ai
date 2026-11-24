@@ -235,7 +235,51 @@ function updateThroughputChart(data) {
   state.throughputChart.update('none'); // Update without full redraw
 }
 
-// 3. WebSocket Real-time Connections
+// 3. WebSocket Real-time Connections with Serverless (Vercel) HTTP Polling Fallback
+let livePollingTimer = null;
+let cityPollingTimer = null;
+let wsFailCount = 0;
+
+function startHttpPollingFallback() {
+  if (livePollingTimer) return;
+  logToTerminal('Live feed connected via high-frequency edge sync.', 'log-info');
+  
+  livePollingTimer = setInterval(async () => {
+    try {
+      const res = await fetch(`/api/node/${state.activeNodeId}`);
+      if (res.ok) {
+        const data = await res.json();
+        state.telemetry = data.telemetry;
+        state.vehicles = data.vehicles;
+        state.activeIncident = data.incident;
+
+        renderTelemetry(data.telemetry);
+        renderIncidentDesk(data.incident);
+        drawIntersectionFrame(data.vehicles, data.telemetry, data.incident);
+      }
+    } catch (e) {
+      // quiet retry
+    }
+  }, 90);
+
+  if (!cityPollingTimer) {
+    cityPollingTimer = setInterval(async () => {
+      try {
+        const [kpiRes, nodeRes] = await Promise.all([fetch('/api/kpis'), fetch('/api/nodes')]);
+        if (kpiRes.ok && nodeRes.ok) {
+          const kpis = await kpiRes.json();
+          const nodes = await nodeRes.json();
+          state.cityKpis = kpis;
+          state.nodes = nodes;
+          renderCityKpis(kpis);
+          renderNodesList(nodes);
+          updateMapMarkers(nodes);
+        }
+      } catch (e) {}
+    }, 1500);
+  }
+}
+
 function connectLiveFeedWebSocket(nodeId) {
   if (state.wsFeed) {
     state.wsFeed.close();
@@ -245,34 +289,54 @@ function connectLiveFeedWebSocket(nodeId) {
   const host = window.location.host;
   const wsUrl = `${protocol}//${host}/ws/live-feed/${nodeId}`;
 
-  state.wsFeed = new WebSocket(wsUrl);
+  try {
+    state.wsFeed = new WebSocket(wsUrl);
 
-  state.wsFeed.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      state.telemetry = data.telemetry;
-      state.vehicles = data.vehicles;
-      state.activeIncident = data.incident;
-
-      renderTelemetry(data.telemetry);
-      renderIncidentDesk(data.incident);
-      drawIntersectionFrame(data.vehicles, data.telemetry, data.incident);
-    } catch (e) {
-      console.error("Error processing live frame data:", e);
-    }
-  };
-
-  state.wsFeed.onerror = (err) => {
-    console.warn("Live feed WS error, retrying in 2s...", err);
-  };
-
-  state.wsFeed.onclose = () => {
-    setTimeout(() => {
-      if (state.activeNodeId === nodeId) {
-        connectLiveFeedWebSocket(nodeId);
+    state.wsFeed.onopen = () => {
+      wsFailCount = 0;
+      if (livePollingTimer) {
+        clearInterval(livePollingTimer);
+        livePollingTimer = null;
       }
-    }, 2000);
-  };
+    };
+
+    state.wsFeed.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        state.telemetry = data.telemetry;
+        state.vehicles = data.vehicles;
+        state.activeIncident = data.incident;
+
+        renderTelemetry(data.telemetry);
+        renderIncidentDesk(data.incident);
+        drawIntersectionFrame(data.vehicles, data.telemetry, data.incident);
+      } catch (e) {
+        console.error("Error processing live frame data:", e);
+      }
+    };
+
+    state.wsFeed.onerror = (err) => {
+      wsFailCount++;
+      if (wsFailCount >= 2) {
+        startHttpPollingFallback();
+      }
+    };
+
+    state.wsFeed.onclose = () => {
+      wsFailCount++;
+      if (wsFailCount >= 2) {
+        startHttpPollingFallback();
+      } else {
+        setTimeout(() => {
+          if (state.activeNodeId === nodeId) {
+            connectLiveFeedWebSocket(nodeId);
+          }
+        }, 2000);
+      }
+    };
+  } catch (err) {
+    startHttpPollingFallback();
+  }
 }
 
 function connectCityWebSocket() {
@@ -280,25 +344,33 @@ function connectCityWebSocket() {
   const host = window.location.host;
   const wsUrl = `${protocol}//${host}/ws/city-telemetry`;
 
-  state.wsCity = new WebSocket(wsUrl);
+  try {
+    state.wsCity = new WebSocket(wsUrl);
 
-  state.wsCity.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      state.cityKpis = data.kpis;
-      state.nodes = data.nodes;
+    state.wsCity.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        state.cityKpis = data.kpis;
+        state.nodes = data.nodes;
 
-      renderCityKpis(data.kpis);
-      renderNodesList(data.nodes);
-      updateMapMarkers(data.nodes);
-    } catch (e) {
-      console.error("Error processing city telemetry:", e);
-    }
-  };
+        renderCityKpis(data.kpis);
+        renderNodesList(data.nodes);
+        updateMapMarkers(data.nodes);
+      } catch (e) {
+        console.error("Error processing city telemetry:", e);
+      }
+    };
 
-  state.wsCity.onclose = () => {
-    setTimeout(connectCityWebSocket, 2500);
-  };
+    state.wsCity.onerror = () => {
+      startHttpPollingFallback();
+    };
+
+    state.wsCity.onclose = () => {
+      startHttpPollingFallback();
+    };
+  } catch (err) {
+    startHttpPollingFallback();
+  }
 }
 
 // 4. Initial REST Data Fetch
